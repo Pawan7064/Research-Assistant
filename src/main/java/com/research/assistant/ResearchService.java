@@ -12,8 +12,8 @@ import java.util.Map;
 public class ResearchService {
     @Value("${gemini.api.url}")
     private String geminiApiUrl;
-//    @Value("${gemini.api.key}")
-//    private String geminiApiKey;
+  @Value("${gemini.api.key}")
+    private String geminiApiKey;
 
     private final WebClient webClient = WebClient.builder().build();
     private final ObjectMapper objectMapper;
@@ -40,7 +40,7 @@ public class ResearchService {
         );
 
         String response = webClient.post()
-                .uri(geminiApiUrl)
+                .uri(geminiApiUrl + "?key=" + geminiApiKey)
                 .header("Content-Type", "application/json")
                 .bodyValue(requestBody)
                 .retrieve()
