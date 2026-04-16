@@ -1,8 +1,9 @@
 package com.research.assistant;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Map;
@@ -16,17 +17,17 @@ public class ResearchService {
     @Value("${gemini.api.key}")
     private String geminiApiKey;
 
-    private final WebClient webClient = WebClient.builder().build();
+    private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public String processContent(ResearchRequest request) {
 
         try {
-            // ✅ STEP 1: Build prompt
+            // ✅ Build prompt
             String prompt = buildPrompt(request);
             System.out.println("📌 Prompt: " + prompt);
 
-            // ✅ STEP 2: Request body
+            // ✅ Request body
             Map<String, Object> requestBody = Map.of(
                     "contents", new Object[]{
                             Map.of("parts", new Object[]{
@@ -35,25 +36,21 @@ public class ResearchService {
                     }
             );
 
-            // ✅ STEP 3: Call Gemini API
-            String response = webClient.post()
-                    .uri(geminiApiUrl + "?key=" + geminiApiKey)
-                    .header("Content-Type", "application/json")
-                    .bodyValue(requestBody)
-                    .retrieve()
-                    .onStatus(status -> status.isError(),
-                            clientResponse -> clientResponse.bodyToMono(String.class)
-                                    .map(error -> {
-                                        System.out.println("🔥 Gemini API Error: " + error);
-                                        return new RuntimeException("API Error: " + error);
-                                    }))
-                    .bodyToMono(String.class)
-                    .block();
+            // ✅ Headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
 
-            // ✅ STEP 4: Print full response
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+            // ✅ Call Gemini API
+            String response = restTemplate.postForObject(
+                    geminiApiUrl + "?key=" + geminiApiKey,
+                    entity,
+                    String.class
+            );
+
             System.out.println("✅ Gemini Response: " + response);
 
-            // ✅ STEP 5: Extract text
             return extractTextFromResponse(response);
 
         } catch (Exception e) {
@@ -78,11 +75,10 @@ public class ResearchService {
                 }
             }
 
-            return "⚠️ No content found in response";
+            return "⚠️ No content found";
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return "❌ Error parsing response: " + e.getMessage();
+            return "❌ Error parsing: " + e.getMessage();
         }
     }
 
@@ -92,11 +88,11 @@ public class ResearchService {
 
         switch (request.getOperation()) {
             case "summarize":
-                prompt.append("Provide a clear and concise summary of the following in a few sentences:\n\n");
+                prompt.append("Provide a clear and concise summary:\n\n");
                 break;
 
             case "suggest":
-                prompt.append("Based on the following content, suggest related topics and further reading. Use headings and bullet points:\n\n");
+                prompt.append("Suggest related topics with bullet points:\n\n");
                 break;
 
             default:
