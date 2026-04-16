@@ -1,7 +1,6 @@
 package com.research.assistant;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,52 +9,57 @@ import java.util.Map;
 
 @Service
 public class ResearchService {
+
     @Value("${gemini.api.url}")
     private String geminiApiUrl;
-  @Value("${gemini.api.key}")
+
+    @Value("${gemini.api.key}")
     private String geminiApiKey;
 
     private final WebClient webClient = WebClient.builder().build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-
     public String processContent(ResearchRequest request) {
-//This methode is going to give us output
-        // It will create prompt first
-        //BUILD THE PROMPT
-        String prompt = buildPrompt(request);
 
+        try {
+            // ✅ STEP 1: Build prompt
+            String prompt = buildPrompt(request);
+            System.out.println("📌 Prompt: " + prompt);
 
-        //It will query the gemni api
-        //QUERY HE AI MODEL API
-        Map<String, Object> requestBody = Map.of("contents", new Object[]{
-                        Map.of("parts", new Object[]{
-                                Map.of("text", prompt)
-                        })
-                }
-        );
+            // ✅ STEP 2: Request body
+            Map<String, Object> requestBody = Map.of(
+                    "contents", new Object[]{
+                            Map.of("parts", new Object[]{
+                                    Map.of("text", prompt)
+                            })
+                    }
+            );
 
-        String response = webClient.post()
-                .uri(geminiApiUrl + "?key=" + geminiApiKey)
-                .header("Content-Type", "application/json")
-                .bodyValue(requestBody)
-                .retrieve()
-                .onStatus(status -> status.isError(),
-                        clientResponse -> clientResponse.bodyToMono(String.class)
-                                .map(error -> new RuntimeException("API Error: " + error)))
-                .bodyToMono(String.class)
-                .block();
+            // ✅ STEP 3: Call Gemini API
+            String response = webClient.post()
+                    .uri(geminiApiUrl + "?key=" + geminiApiKey)
+                    .header("Content-Type", "application/json")
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .onStatus(status -> status.isError(),
+                            clientResponse -> clientResponse.bodyToMono(String.class)
+                                    .map(error -> {
+                                        System.out.println("🔥 Gemini API Error: " + error);
+                                        return new RuntimeException("API Error: " + error);
+                                    }))
+                    .bodyToMono(String.class)
+                    .block();
 
+            // ✅ STEP 4: Print full response
+            System.out.println("✅ Gemini Response: " + response);
 
-        // It will get the response and parse  the response
-        //PARSE THE RESPONSE
-        return extractTextFromResponse(response);
+            // ✅ STEP 5: Extract text
+            return extractTextFromResponse(response);
 
-
-        // And it will return as a String
-        //RETURN RESPONSE
-
-
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "❌ Backend Error: " + e.getMessage();
+        }
     }
 
     private String extractTextFromResponse(String response) {
@@ -63,36 +67,44 @@ public class ResearchService {
             GeminiResponse geminiResponse = objectMapper.readValue(response, GeminiResponse.class);
 
             if (geminiResponse.getCandidates() != null && !geminiResponse.getCandidates().isEmpty()) {
+
                 GeminiResponse.Candidate firstCandidate = geminiResponse.getCandidates().get(0);
+
                 if (firstCandidate.getContent() != null &&
                         firstCandidate.getContent().getParts() != null &&
                         !firstCandidate.getContent().getParts().isEmpty()) {
+
                     return firstCandidate.getContent().getParts().get(0).getText();
                 }
             }
-            return "No COntent Found in response";
+
+            return "⚠️ No content found in response";
+
         } catch (Exception e) {
-            return "Error Parsing :" + e.getMessage();
+            e.printStackTrace();
+            return "❌ Error parsing response: " + e.getMessage();
         }
     }
 
-
-
     private String buildPrompt(ResearchRequest request) {
+
         StringBuilder prompt = new StringBuilder();
+
         switch (request.getOperation()) {
             case "summarize":
-                prompt.append("Provide a clear and consise summary of the following in a few sentences");
+                prompt.append("Provide a clear and concise summary of the following in a few sentences:\n\n");
                 break;
 
             case "suggest":
-                prompt.append("Based on the following content : suggest related topics and further reading. Format the response with clear heading and bullet points: \n\n  ");
+                prompt.append("Based on the following content, suggest related topics and further reading. Use headings and bullet points:\n\n");
                 break;
 
             default:
-                throw new IllegalArgumentException("Unknown Operation:" + request.getOperation());
+                throw new IllegalArgumentException("Unknown Operation: " + request.getOperation());
         }
+
         prompt.append(request.getContent());
+
         return prompt.toString();
     }
 }
