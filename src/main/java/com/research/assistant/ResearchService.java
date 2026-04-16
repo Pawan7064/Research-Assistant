@@ -16,11 +16,7 @@ public class ResearchService {
     private String geminiApiKey;
 
     private final WebClient webClient = WebClient.builder().build();
-    private final ObjectMapper objectMapper;
-
-    public ResearchService( ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
 
     public String processContent(ResearchRequest request) {
@@ -44,6 +40,9 @@ public class ResearchService {
                 .header("Content-Type", "application/json")
                 .bodyValue(requestBody)
                 .retrieve()
+                .onStatus(status -> status.isError(),
+                        clientResponse -> clientResponse.bodyToMono(String.class)
+                                .map(error -> new RuntimeException("API Error: " + error)))
                 .bodyToMono(String.class)
                 .block();
 
