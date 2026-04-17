@@ -23,11 +23,11 @@ public class ResearchService {
     public String processContent(ResearchRequest request) {
 
         try {
-            // ✅ Build prompt
+            //  Build prompt
             String prompt = buildPrompt(request);
-            System.out.println("📌 Prompt: " + prompt);
+            System.out.println(" Prompt: " + prompt);
 
-            // ✅ Request body
+            //  Request body
             Map<String, Object> requestBody = Map.of(
                     "contents", new Object[]{
                             Map.of("parts", new Object[]{
@@ -36,26 +36,26 @@ public class ResearchService {
                     }
             );
 
-            // ✅ Headers
+            //  Headers
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            // ✅ Call Gemini API
+            //  Call Gemini API
             String response = restTemplate.postForObject(
                     geminiApiUrl + "?key=" + geminiApiKey,
                     entity,
                     String.class
             );
 
-            System.out.println("✅ Gemini Response: " + response);
+            System.out.println(" Gemini Response: " + response);
 
             return extractTextFromResponse(response);
 
         } catch (Exception e) {
             e.printStackTrace();
-            return "❌ Backend Error: " + e.getMessage();
+            return " Backend Error: " + e.getMessage();
         }
     }
 
@@ -75,10 +75,10 @@ public class ResearchService {
                 }
             }
 
-            return "⚠️ No content found";
+            return " No content found";
 
         } catch (Exception e) {
-            return "❌ Error parsing: " + e.getMessage();
+            return " Error parsing: " + e.getMessage();
         }
     }
 
